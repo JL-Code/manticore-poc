@@ -1,0 +1,45 @@
+server:
+  port: 8008
+
+spring:
+  application:
+    name: manticore-search-poc
+
+  # Manticore Search ????? (MySQL??)
+  datasource:
+    url: jdbc:mysql://localhost:9306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: ""
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# Manticore Search HTTP API ??
+manticore:
+  http:
+    url: http://localhost:9308
+    timeout: 10000
+  search:
+    default-index: products
+    max-results: 1000
+
+# ????
+logging:
+  level:
+    com.example: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
