@@ -1,5 +1,8 @@
 package com.jiangy.manticorepoc.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.manticoresearch.client.ApiClient;
 import com.manticoresearch.client.ApiException;
 import com.manticoresearch.client.Configuration;
@@ -27,11 +30,13 @@ class ManticoreApiClientTest {
     SearchApi searchApi;
     UtilsApi utilsApi;
     Boolean rawResponse;
+    String tableName;
 
     @BeforeEach
     void setUp() {
         ApiClient defaultClient = Configuration.getDefaultApiClient();
         defaultClient.setBasePath("http://127.0.0.1:9318");
+        tableName = "mdm_enterprise";
         rawResponse = true;
         indexApi = new IndexApi(defaultClient);
         utilsApi = new UtilsApi(defaultClient);
@@ -110,32 +115,31 @@ class ManticoreApiClientTest {
 
     @Test
     void searchByGEODISTViaSql() throws ApiException {
-        SqlResponse sqlResponse = utilsApi.sql("SELECT *,GEODIST(latitude, longitude,30.28, 120.15,{in=deg, out=mi}) AS distance\n" +
-                "FROM mdm_enterprise_rt\n" +
-                "WHERE MATCH('@name 动力电池') \n" +
-                "AND distance < 50000\n" +
-                "ORDER BY distance ASC\n" +
-                "LIMIT 20", rawResponse);
-        output(sqlResponse);
+        SqlResponse sqlResponse = utilsApi.sql("""
+                SELECT *,GEODIST(latitude, longitude,30.28, 120.15,{in=deg, out=mi}) AS distance
+                FROM mdm_enterprise_rt
+                WHERE MATCH('@name 动力电池')\s
+                AND distance < 50000
+                ORDER BY distance ASC
+                LIMIT 20""", rawResponse);
+        outputSqlResponse(sqlResponse);
     }
 
     @Test
     void searchViaSearchApi() throws ApiException {
         SearchRequest searchRequest = new SearchRequest();
-        searchRequest.setTable("mdm_enterprise_rt");
+        searchRequest.setTable(tableName);
         var query = new SearchQuery();
-        query.setMatch(Map.of("@name", "动力电池"));
+        query.setMatch(Map.of("@name", "*公司"));
         searchRequest.setQuery(query);
-
 
         SearchResponse response = searchApi.search(searchRequest);
 
         Assertions.assertNotNull(response.getHits());
-        Assertions.assertNotNull(response.getHits().getHits());
-
         var total = response.getHits().getTotal();
 
         log.info("total: {}", total);
+        Assertions.assertNotNull(response.getHits().getHits());
 
         response.getHits().getHits().forEach(hit -> {
             log.info("hit: {}", hit);
@@ -166,11 +170,27 @@ class ManticoreApiClientTest {
         }};
         newdoc.table("products").id(0L).setDoc(doc3);
         indexApi.insert(newdoc);
-
     }
 
 
     void output(SqlResponse sqlResponse) {
         log.info("sqlResponse: {}", sqlResponse);
+    }
+
+    void outputSqlResponse(SqlResponse sqlResponse) {
+        if (sqlResponse.isNullable()) {
+            log.info("未命中数据");
+            return;
+        }
+        sqlResponse.get().forEach(row -> {
+            log.info("row: {}", row);
+        });
+    }
+
+    public static Map<String, Object> toMap(Object javaBean) {
+        ObjectMapper MAPPER = new ObjectMapper();
+        MAPPER.registerModule(new JavaTimeModule());
+        return MAPPER.convertValue(javaBean, new TypeReference<>() {
+        });
     }
 }
